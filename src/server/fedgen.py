@@ -53,6 +53,9 @@ class FedGenServer(FedAvgServer):
         )
         self.unique_labels = range(NUM_CLASSES[self.args.dataset.name])
         self.teacher_model = deepcopy(self.model)
+        with torch.no_grad():
+            dummy_input = torch.zeros(1, *DATA_SHAPE[self.args.dataset.name], device=self.model.device)
+        self.classifier_input_shape = self.model.base(dummy_input).shape[1:]
 
     def package(self, client_id: int):
         server_package = super().package(client_id)
@@ -89,6 +92,7 @@ class FedGenServer(FedAvgServer):
             y_tensor = torch.tensor(y_npy, dtype=torch.long, device=self.device)
 
             generator_output, eps = self.generator(y_tensor)
+            generator_output = generator_output.view(generator_output.shape[0], *self.classifier_input_shape)
 
             diversity_loss = self.generator.diversity_loss(eps, generator_output)
 
@@ -161,7 +165,8 @@ class Generator(nn.Module):
         # obtain the latent dim
         x = torch.zeros(1, *DATA_SHAPE[server.args.dataset.name])
         self.use_embedding = server.args.fedgen.use_embedding
-        self.latent_dim = server.model.base(x).shape[-1]
+        self.input_shape = server.model.base(x).shape[1:]
+        self.latent_dim = self.input_shape[0]
         self.hidden_dim = server.args.fedgen.hidden_dim
         self.noise_dim = server.args.fedgen.noise_dim
         self.class_num = NUM_CLASSES[server.args.dataset.name]
