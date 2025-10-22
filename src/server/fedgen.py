@@ -170,6 +170,11 @@ class Generator(nn.Module):
         self.hidden_dim = server.args.fedgen.hidden_dim
         self.noise_dim = server.args.fedgen.noise_dim
         self.class_num = NUM_CLASSES[server.args.dataset.name]
+        with torch.no_grad():
+            dummy_input = torch.zeros(
+                1, *DATA_SHAPE[server.args.dataset.name], device=server.model.device
+            )
+        self.classifier_input_shape = server.model.base(dummy_input).shape[1:]
 
         if server.args.fedgen.use_embedding:
             self.embedding = nn.Embedding(self.class_num, server.args.fedgen.noise_dim)
@@ -199,6 +204,7 @@ class Generator(nn.Module):
         z = torch.cat([eps, y], dim=1)
         z = self.mlp(z)
         z = self.latent_layer(z)
+        z = z.view(z.shape[0], *self.classifier_input_shape)
         return z, eps
 
 

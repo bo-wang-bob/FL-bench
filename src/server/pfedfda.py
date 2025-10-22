@@ -26,7 +26,11 @@ class pFedFDAServer(FedAvgServer):
 
     def __init__(self, args: DictConfig):
         super().__init__(args)
-
+        if self.args.dataset.split == "user":
+            raise NotImplementedError(
+                "pFedFDA is not available with user-based data partition"
+                "(i.e., users are divided into train users and test users, the latter has no data for training at all.)."
+            )
         self.global_means = torch.rand(
             [NUM_CLASSES[self.args.dataset.name], self.model.classifier.in_features]
         )
@@ -63,9 +67,9 @@ class pFedFDAServer(FedAvgServer):
         package["covariances_beta"] = self.client_covariances_beta[client_id]
         return package
 
-    def aggregate(self, client_packages: Dict[str, Dict[str, Any]]):
+    def aggregate_client_updates(self, client_packages: Dict[str, Dict[str, Any]]):
         # common aggregation
-        super().aggregate(client_packages)
+        super().aggregate_client_updates(client_packages)
 
         # save client-specific variables
         for client_id, package in client_packages.items():

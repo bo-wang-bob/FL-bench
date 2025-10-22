@@ -10,7 +10,7 @@ import traceback
 from collections import OrderedDict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 import ray
@@ -24,20 +24,11 @@ from torchvision import transforms
 
 from data.utils.datasets import DATASETS, BaseDataset
 from src.client.fedavg import FedAvgClient
-from src.utils.constants import (
-    DATA_MEAN,
-    DATA_STD,
-    FLBENCH_ROOT,
-    LR_SCHEDULERS,
-    MODE,
-    OPTIMIZERS,
-)
-from src.utils.functional import (
-    evaluate_model,
-    fix_random_seed,
-    get_optimal_cuda_device,
-    initialize_data_loaders,
-)
+from src.utils.constants import (DATA_MEAN, DATA_STD, FLBENCH_ROOT,
+                                 LR_SCHEDULERS, MODE, OPTIMIZERS)
+from src.utils.functional import (evaluate_model, fix_random_seed,
+                                  get_optimal_cuda_device,
+                                  initialize_data_loaders)
 from src.utils.logger import Logger
 from src.utils.metrics import Metrics
 from src.utils.models import MODELS, DecoupledModel
@@ -50,12 +41,7 @@ class FedAvgServer:
     return_diff = False  # `True` indicates that clients return `diff = W_global - W_local` as parameter update; `False` for `W_local` only.
     client_cls = FedAvgClient
 
-    def __init__(
-        self,
-        args: DictConfig,
-        init_trainer=True,
-        init_model=True,
-    ):
+    def __init__(self, args: DictConfig, init_trainer=True, init_model=True):
         """
         Args:
             `args`: A DictConfig object of the arguments.
@@ -86,6 +72,14 @@ class FedAvgServer:
                 self.data_partition = pickle.load(f)
         except:
             raise FileNotFoundError(f"Please partition {self.args.dataset.name} first.")
+        if (
+            self.args.dataset.split == "user"
+            and self.args.common.test.client.funetune_epoch > 0
+        ):
+            raise RuntimeError(
+                "User-based data partition is not compatible with client-side fine-tuning."
+            )
+
         self.train_clients: List[int] = self.data_partition["separation"]["train"]
         self.test_clients: List[int] = self.data_partition["separation"]["test"]
         self.val_clients: List[int] = self.data_partition["separation"]["val"]
@@ -903,7 +897,7 @@ class FedAvgServer:
         plt.xlabel("Communication Rounds")
         plt.ylabel("Accuracy")
         plt.legend()
-        plt.savefig(self.output_dir / f"metrics.png", bbox_inches="tight")
+        plt.savefig(self.output_dir / "metrics.png", bbox_inches="tight")
 
     def save_metrics_stats(self):
         """Save the metrics stats of FL-bench experiment."""
@@ -929,7 +923,7 @@ class FedAvgServer:
                             column=f"{metric}_{split}_{stage}",
                             value=np.array(stats).T,
                         )
-        df.to_csv(self.output_dir / f"metrics.csv", index=True, index_label="epoch")
+        df.to_csv(self.output_dir / "metrics.csv", index=True, index_label="epoch")
 
     def run_experiment(self):
         """The entrypoint of FL-bench experiment."""
